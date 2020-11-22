@@ -102,6 +102,25 @@ func WithConverter(conv Converter, p Profile) *AVP {
 	return avp
 }
 
+// Quality type represents type of profile
+type Quality uint8
+
+const (
+	// Best represents best available quality
+	Best Quality = iota
+	// High ,high quality based on profile
+	High
+	// Medium ,medium quality based on profile
+	Medium
+	// Low ,low quality based on profile
+	Low
+)
+
+// Selection is helper to give format of particular quality
+func (avp *AVP) Selection(qlty Quality) []*Format {
+	return avp.qltMap[int(qlty)]
+}
+
 // Weight = Resolution*10 + VideoBitrate + 100*VideoCodec + 1000 + 1000
 // Weight = AudioBitrate + ChannelWeight + AudioCodec + 40
 
