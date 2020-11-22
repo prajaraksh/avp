@@ -2,7 +2,7 @@ package avp
 
 import "testing"
 
-var t1Formats = []*Format{
+var t1Formats = Formats{
 	{Resolution: 1080, AudioBitrate: 196},
 	{Resolution: 4320},
 	{Resolution: 2160},
@@ -12,7 +12,7 @@ var t1Formats = []*Format{
 	{AudioBitrate: 128},
 }
 
-var t1Result = map[int][]*Format{
+var t1Result = map[int]Formats{
 	0: {
 		{AudioBitrate: 316},
 		{Resolution: 4320},
@@ -35,13 +35,13 @@ func TestAll(t *testing.T) {
 	check(t, avp.qltMap, t1Result)
 }
 
-func check(t *testing.T, got, res map[int][]*Format) {
+func check(t *testing.T, got, res map[int]Formats) {
 	for i, g := range got {
 		equal(t, g, res[i])
 	}
 }
 
-func equal(t *testing.T, a, b []*Format) bool {
+func equal(t *testing.T, a, b Formats) bool {
 	if len(a) != len(b) {
 		return false
 	}

@@ -22,33 +22,36 @@ type Format struct {
 	AudioVBR      bool
 }
 
+// Formats is slice of Format pointers
+type Formats []*Format
+
 // AVP ,Audio Video Picker
 type AVP struct {
-	fs     []*Format
+	fs     Formats
 	p      Profile
-	qltMap map[int][]*Format
+	qltMap map[int]Formats
 }
 
 // New , given formats are categorized into different sections
-func New(fs []*Format) *AVP {
+func New(fs Formats) *AVP {
 	return WithProfile(fs, AVProfile)
 }
 
 // WithProfile takes Profile option
-func WithProfile(fs []*Format, p Profile) *AVP {
+func WithProfile(fs Formats, p Profile) *AVP {
 	avp := &AVP{
 		fs:     fs,
 		p:      p,
-		qltMap: make(map[int][]*Format, 4),
+		qltMap: make(map[int]Formats, 4),
 	}
 
 	// segreate list based on their type
 	avfs, aofs, vofs := segregateByType(fs)
 
 	// sort each list
-	sort.Sort(avfs)
-	sort.Sort(aofs)
-	sort.Sort(vofs)
+	sort.Sort(formats(avfs))
+	sort.Sort(formats(aofs))
+	sort.Sort(formats(vofs))
 
 	avpfs := segregateByProfile(avfs, avp.p)
 	aopfs := segregateByProfile(aofs, avp.p)
@@ -60,22 +63,22 @@ func WithProfile(fs []*Format, p Profile) *AVP {
 }
 
 // Best ,Formats greater than `High` profile
-func (avp *AVP) Best() []*Format {
+func (avp *AVP) Best() Formats {
 	return avp.qltMap[0]
 }
 
 // High ,Formats less than or equal to `High` Profile and greater than `Medium` profile
-func (avp *AVP) High() []*Format {
+func (avp *AVP) High() Formats {
 	return avp.qltMap[1]
 }
 
 // Medium ,Formats less than or equal to `Medium` Profile and greater than `Low` profile
-func (avp *AVP) Medium() []*Format {
+func (avp *AVP) Medium() Formats {
 	return avp.qltMap[2]
 }
 
 // Low ,Formats less than or equal to `Low` profile
-func (avp *AVP) Low() []*Format {
+func (avp *AVP) Low() Formats {
 	return avp.qltMap[3]
 }
 
@@ -90,7 +93,7 @@ type Converter interface {
 func WithConverter(conv Converter, p Profile) *AVP {
 	l := conv.Len()
 
-	fs := make([]*Format, l)
+	fs := make(Formats, l)
 
 	for id := 0; id < l; id++ {
 		fs[id] = conv.ToFormat(id)
@@ -117,7 +120,7 @@ const (
 )
 
 // Selection is helper to give format of particular quality
-func (avp *AVP) Selection(qlty Quality) []*Format {
+func (avp *AVP) Selection(qlty Quality) Formats {
 	return avp.qltMap[int(qlty)]
 }
 
@@ -142,13 +145,13 @@ func weight(f *Format) int {
 	return vw + aw
 }
 
-func finalSelect(avpfs, aopfs, vopfs []formats, m map[int][]*Format) {
+func finalSelect(avpfs, aopfs, vopfs []Formats, m map[int]Formats) {
 	for i := 0; i < 4; i++ {
 		m[i] = selectForSection(i, avpfs, aopfs, vopfs)
 	}
 }
 
-func selectForSection(id int, avpfs, aopfs, vopfs []formats) formats {
+func selectForSection(id int, avpfs, aopfs, vopfs []Formats) Formats {
 	avf, aof, vof := someFormat(id, avpfs), someFormat(id, aopfs), someFormat(id, vopfs)
 
 	avgf, aogf, vogf := avf != nil, aof != nil, vof != nil
@@ -156,26 +159,26 @@ func selectForSection(id int, avpfs, aopfs, vopfs []formats) formats {
 	if avgf && aogf && vogf {
 		return best(avf, aof, vof)
 	} else if avgf && ((!aogf && !vogf) || (!aogf && vogf) || (aogf && !vogf)) {
-		return formats{avf}
+		return Formats{avf}
 	} else if !avgf && aogf && vogf {
-		return formats{aof, vof}
+		return Formats{aof, vof}
 	} else if !avgf && !aogf && vogf {
-		return formats{vof}
+		return Formats{vof}
 	} else if !avgf && aogf && !vogf {
-		return formats{aof}
+		return Formats{aof}
 	}
 
-	return formats{}
+	return Formats{}
 }
 
-func best(av, ao, vo *Format) formats {
+func best(av, ao, vo *Format) Formats {
 	if weight(av) < weight(ao)+weight(vo) {
-		return formats{ao, vo}
+		return Formats{ao, vo}
 	}
-	return formats{av}
+	return Formats{av}
 }
 
-func someFormat(id int, pfs []formats) *Format {
+func someFormat(id int, pfs []Formats) *Format {
 	// 0, downward - ++
 	// i.e., we move from best, high, medium, low
 	// since we are moving downward, we use `bestof()`
@@ -193,8 +196,8 @@ func someFormat(id int, pfs []formats) *Format {
 	return selectFormat(id, 1, pfs)
 }
 
-func selectFormat(id, motion int, pfs []formats) *Format {
-	var fn func(fs formats) *Format
+func selectFormat(id, motion int, pfs []Formats) *Format {
+	var fn func(fs Formats) *Format
 	var op func()
 
 	if motion == 0 {
@@ -215,14 +218,14 @@ func selectFormat(id, motion int, pfs []formats) *Format {
 	return nil
 }
 
-func bestof(fs formats) *Format {
+func bestof(fs Formats) *Format {
 	if len(fs) != 0 {
 		return fs[len(fs)-1]
 	}
 	return nil
 }
 
-func leastof(fs formats) *Format {
+func leastof(fs Formats) *Format {
 	if len(fs) != 0 {
 		return fs[0]
 	}
@@ -232,7 +235,7 @@ func leastof(fs formats) *Format {
 // audio & video format list
 // audio only format list
 // video only format list
-func segregateByType(fs []*Format) (avfs formats, aofs formats, vofs formats) {
+func segregateByType(fs Formats) (avfs Formats, aofs Formats, vofs Formats) {
 
 	for _, f := range fs {
 
@@ -267,13 +270,13 @@ func videoOnly(f *Format) bool {
 	return false
 }
 
-func segregateByProfile(fs formats, p Profile) []formats {
+func segregateByProfile(fs Formats, p Profile) []Formats {
 
 	// 0 - best
 	// 1 - high
 	// 2 = medium
 	// 3 = low
-	profileMatchers := make([]formats, 4)
+	profileMatchers := make([]Formats, 4)
 
 	bestProfile := &Format{Resolution: math.MaxInt64, AudioBitrate: math.MaxInt64}
 	profileMatchers[0] = matches(bestProfile, p.High, fs)
@@ -284,9 +287,9 @@ func segregateByProfile(fs formats, p Profile) []formats {
 	return profileMatchers
 }
 
-func matches(curProfile, nextProfile *Format, fs []*Format) []*Format {
+func matches(curProfile, nextProfile *Format, fs Formats) Formats {
 
-	matchedFormats := make([]*Format, 0)
+	matchedFormats := make(Formats, 0)
 
 	for _, f := range fs {
 		if res := match(curProfile, nextProfile, f); res != nil {
@@ -378,15 +381,7 @@ func (f *Format) String() string {
 	}
 }
 
-func (fs formats) String() string {
-	str := ""
-	for _, f := range fs {
-		str += fmt.Sprintf("%v\n", f)
-	}
-	return str
-}
-
-type formats []*Format
+type formats Formats
 
 func (fs formats) Less(i, j int) bool {
 	return weight(fs[i]) < weight(fs[j])
@@ -398,4 +393,12 @@ func (fs formats) Len() int {
 
 func (fs formats) Swap(i, j int) {
 	fs[i], fs[j] = fs[j], fs[i]
+}
+
+func (fs formats) String() string {
+	str := ""
+	for _, f := range fs {
+		str += fmt.Sprintf("%v\n", f)
+	}
+	return str
 }
