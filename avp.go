@@ -29,7 +29,7 @@ type Formats []*Format
 type AVP struct {
 	fs     Formats
 	p      Profile
-	qltMap map[int]Formats
+	qltMap map[Quality]Formats
 }
 
 // New , given formats are categorized into different sections
@@ -42,7 +42,7 @@ func WithProfile(fs Formats, p Profile) *AVP {
 	avp := &AVP{
 		fs:     fs,
 		p:      p,
-		qltMap: make(map[int]Formats, 4),
+		qltMap: make(map[Quality]Formats, 5),
 	}
 
 	// segreate list based on their type
@@ -64,22 +64,22 @@ func WithProfile(fs Formats, p Profile) *AVP {
 
 // Best ,Formats greater than `High` profile
 func (avp *AVP) Best() Formats {
-	return avp.qltMap[0]
+	return avp.qltMap[Best]
 }
 
 // High ,Formats less than or equal to `High` Profile and greater than `Medium` profile
 func (avp *AVP) High() Formats {
-	return avp.qltMap[1]
+	return avp.qltMap[High]
 }
 
 // Medium ,Formats less than or equal to `Medium` Profile and greater than `Low` profile
 func (avp *AVP) Medium() Formats {
-	return avp.qltMap[2]
+	return avp.qltMap[Medium]
 }
 
 // Low ,Formats less than or equal to `Low` profile
 func (avp *AVP) Low() Formats {
-	return avp.qltMap[3]
+	return avp.qltMap[Low]
 }
 
 // Converter should be implemented by every site
@@ -106,11 +106,13 @@ func WithConverter(conv Converter, p Profile) *AVP {
 }
 
 // Quality type represents type of profile
-type Quality uint8
+type Quality int
 
 const (
+	// None represents, no selection of particular quality
+	None Quality = iota
 	// Best represents best available quality
-	Best Quality = iota
+	Best
 	// High ,high quality based on profile
 	High
 	// Medium ,medium quality based on profile
@@ -119,9 +121,9 @@ const (
 	Low
 )
 
-// Selection is helper to give format of particular quality
-func (avp *AVP) Selection(qlty Quality) Formats {
-	return avp.qltMap[int(qlty)]
+// OfQuality is helper to give formats of particular quality
+func (avp *AVP) OfQuality(qlty Quality) Formats {
+	return avp.qltMap[qlty]
 }
 
 // Weight = Resolution*10 + VideoBitrate + 100*VideoCodec + 1000 + 1000
@@ -145,9 +147,9 @@ func weight(f *Format) int {
 	return vw + aw
 }
 
-func finalSelect(avpfs, aopfs, vopfs []Formats, m map[int]Formats) {
-	for i := 0; i < 4; i++ {
-		m[i] = selectForSection(i, avpfs, aopfs, vopfs)
+func finalSelect(avpfs, aopfs, vopfs []Formats, m map[Quality]Formats) {
+	for i := 1; i < 5; i++ {
+		m[Quality(i)] = selectForSection(i, avpfs, aopfs, vopfs)
 	}
 }
 
@@ -208,7 +210,7 @@ func selectFormat(id, motion int, pfs []Formats) *Format {
 		fn = leastof
 	}
 
-	for ; id >= 0 && id < 4; op() {
+	for ; id > 0 && id < 5; op() {
 		res := fn(pfs[id])
 		if res != nil {
 			return res
@@ -220,6 +222,7 @@ func selectFormat(id, motion int, pfs []Formats) *Format {
 
 func bestof(fs Formats) *Format {
 	if len(fs) != 0 {
+		// last format is the best quality
 		return fs[len(fs)-1]
 	}
 	return nil
@@ -227,6 +230,7 @@ func bestof(fs Formats) *Format {
 
 func leastof(fs Formats) *Format {
 	if len(fs) != 0 {
+		// first format is of least quality
 		return fs[0]
 	}
 	return nil
@@ -272,17 +276,18 @@ func videoOnly(f *Format) bool {
 
 func segregateByProfile(fs Formats, p Profile) []Formats {
 
-	// 0 - best
-	// 1 - high
-	// 2 = medium
-	// 3 = low
-	profileMatchers := make([]Formats, 4)
+	// 0 - None
+	// 1 - best
+	// 2 - high
+	// 3 = medium
+	// 4 = low
+	profileMatchers := make([]Formats, 5)
 
 	bestProfile := &Format{Resolution: math.MaxInt64, AudioBitrate: math.MaxInt64}
-	profileMatchers[0] = matches(bestProfile, p.High, fs)
-	profileMatchers[1] = matches(p.High, p.Medium, fs)
-	profileMatchers[2] = matches(p.Medium, p.Low, fs)
-	profileMatchers[3] = matches(p.Low, &Format{}, fs)
+	profileMatchers[1] = matches(bestProfile, p.High, fs)
+	profileMatchers[2] = matches(p.High, p.Medium, fs)
+	profileMatchers[3] = matches(p.Medium, p.Low, fs)
+	profileMatchers[4] = matches(p.Low, &Format{}, fs)
 
 	return profileMatchers
 }

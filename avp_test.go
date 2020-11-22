@@ -12,19 +12,19 @@ var t1Formats = Formats{
 	{AudioBitrate: 128},
 }
 
-var t1Result = map[int]Formats{
-	0: {
+var t1Result = map[Quality]Formats{
+	1: {
 		{AudioBitrate: 316},
 		{Resolution: 4320},
 	},
-	1: {
+	2: {
 		{Resolution: 1080, AudioBitrate: 196},
 	},
-	2: {
+	3: {
 		{AudioBitrate: 128},
 		{Resolution: 720},
 	},
-	3: {
+	4: {
 		{AudioBitrate: 128},
 		{Resolution: 720},
 	},
@@ -35,7 +35,7 @@ func TestAll(t *testing.T) {
 	check(t, avp.qltMap, t1Result)
 }
 
-func check(t *testing.T, got, res map[int]Formats) {
+func check(t *testing.T, got, res map[Quality]Formats) {
 	for i, g := range got {
 		equal(t, g, res[i])
 	}
