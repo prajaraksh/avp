@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 )
 
 // Format of a video or audio file
@@ -124,6 +125,19 @@ const (
 // OfQuality is helper to give formats of particular quality
 func (avp *AVP) OfQuality(qlty Quality) Formats {
 	return avp.qltMap[qlty]
+}
+
+var qMap = map[string]Quality{
+	"best":   Best,
+	"high":   High,
+	"medium": Medium,
+	"low":    Low,
+}
+
+// QualityType converts strings like `best`, `high`, ...
+// to respective Quality type
+func QualityType(s string) Quality {
+	return qMap[strings.ToLower(s)]
 }
 
 // Weight = Resolution*10 + VideoBitrate + 100*VideoCodec + 1000 + 1000
